@@ -1,5 +1,5 @@
 // src/components/recipe/RecipeDetail.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRecipe } from '../../hooks/useRecipes';
 import { useReviews, useCreateReview } from '../../hooks/useReviews';
 import { useIsFavorited } from '../../hooks/useFavorites';
@@ -16,12 +16,18 @@ export default function RecipeDetail({ recipeId, onBack, onEdit, category = 'mak
   const { reviews, loading: reviewsLoading, refetch: refetchReviews } = useReviews(recipeId);
   const { createReview, loading: createLoading } = useCreateReview();
   const { isFavorited, loading: favLoading, toggleFavorite } = useIsFavorited(recipeId);
-
+  
+  const [userProfile, setUserProfile] = useState(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    const profile = userService.getUserProfile();
+    setUserProfile(profile);
+  }, []);
 
   const categoryColors = {
     makanan: {
@@ -49,11 +55,8 @@ export default function RecipeDetail({ recipeId, onBack, onEdit, category = 'mak
   const handleSubmitReview = async (e) => {
     e.preventDefault();
     
-    // Get username from user profile
-    const userProfile = userService.getUserProfile();
-    
     const reviewData = {
-      user_identifier: userProfile.username || getUserIdentifier(),
+      user_identifier: userProfile.userId || getUserIdentifier(),
       rating,
       comment: comment.trim(),
     };
@@ -408,40 +411,45 @@ export default function RecipeDetail({ recipeId, onBack, onEdit, category = 'mak
                 <div className={`animate-spin rounded-full h-8 w-8 border-b-2 border-${colors.primary}-600 mx-auto`}></div>
               </div>
             ) : reviews && reviews.length > 0 ? (
-              reviews.map((review) => (
-                <div
-                  key={review.id}
-                  className="bg-white/70 rounded-2xl p-6 border border-white/60"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <p className="font-semibold text-slate-800">
-                        {review.user_identifier}
-                      </p>
-                      <div className="flex items-center gap-1 mt-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`w-4 h-4 ${
-                              star <= review.rating
-                                ? 'text-amber-500 fill-current'
-                                : 'text-slate-300'
-                            }`}
-                          />
-                        ))}
+              reviews.map((review) => {
+                const isCurrentUserReview = userProfile && review.user_identifier === userProfile.userId;
+                const displayName = isCurrentUserReview ? userProfile.username : review.user_identifier;
+
+                return (
+                  <div
+                    key={review.id}
+                    className="bg-white/70 rounded-2xl p-6 border border-white/60"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="font-semibold text-slate-800">
+                          {displayName}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-4 h-4 ${
+                                star <= review.rating
+                                  ? 'text-amber-500 fill-current'
+                                  : 'text-slate-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
                       </div>
+                      <p className="text-sm text-slate-500">
+                        {formatDate(review.created_at)}
+                      </p>
                     </div>
-                    <p className="text-sm text-slate-500">
-                      {formatDate(review.created_at)}
-                    </p>
+                    {review.comment && (
+                      <p className="text-slate-700 leading-relaxed">
+                        {review.comment}
+                      </p>
+                    )}
                   </div>
-                  {review.comment && (
-                    <p className="text-slate-700 leading-relaxed">
-                      {review.comment}
-                    </p>
-                  )}
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-center py-8">
                 <p className="text-slate-500">Belum ada ulasan untuk resep ini.</p>
